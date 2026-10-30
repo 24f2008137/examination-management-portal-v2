@@ -1,0 +1,2 @@
+# examination-management-portal-v2
+Examination Management Portal (EMP) web application that allows Admin, Examiners, and Students to interact with the system based on their roles.
