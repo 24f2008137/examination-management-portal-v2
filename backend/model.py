@@ -8,7 +8,7 @@ class User(db.Model):
     username = db.Column(db.String(), unique=True, nullable=False)
     email = db.Column(db.String(), unique=True, nullable=False)
     password = db.Column(db.String(), nullable=False)
-    role = db.Column(db.String(), nullable=False, default='student')  # admin / examiner / student
+    role = db.Column(db.String(), nullable=False, default='student')
     status = db.Column(db.String(), default='Active')
 
     examiner_profile = db.relationship('ExaminerProfile', backref='user', uselist=False)
@@ -58,16 +58,18 @@ class Exam(db.Model):
     slot_creation_end_date = db.Column(db.Date, nullable=False)
     slot_booking_start_date = db.Column(db.Date, nullable=False)
     slot_booking_end_date = db.Column(db.Date, nullable=False)
-    exam_status = db.Column(db.String(), default='Draft') #Draft / Slot Creation / Booking Open / Closed / Completed
+    exam_status = db.Column(db.String(), default='Draft')
     results_published = db.Column(db.Boolean, default=False)
+    exam_instructions = db.Column(db.Text)
 
     examslot = db.relationship('ExamSlot', backref='exam', lazy=True)
     rubric = db.relationship('ExamRubric', backref='exam', lazy=True)
     assigned_examiner = db.relationship('ExamExaminer', backref='exam', lazy=True)
 
 
-# which examiners are assigned to which exam
 class ExamExaminer(db.Model):
+
+    __table_args__ = (db.UniqueConstraint('exam_id', 'examiner_id'),)
     id = db.Column(db.Integer, primary_key=True)
     exam_id = db.Column(db.Integer, db.ForeignKey('exam.id'), nullable=False)
     examiner_id = db.Column(db.Integer, db.ForeignKey('examiner_profile.id'), nullable=False)
@@ -84,7 +86,7 @@ class ExamSlot(db.Model):
     end_time = db.Column(db.Time, nullable=False)
     maximum_student_capacity = db.Column(db.Integer, nullable=False)
     available_seats = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(), default='Available')  # Available / Full / Cancelled / Completed
+    status = db.Column(db.String(), default='Available') 
     meeting_link = db.Column(db.String())
 
     bookings = db.relationship('Booking', backref='examslot', lazy=True)
@@ -94,7 +96,7 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     slot_id = db.Column(db.Integer, db.ForeignKey('exam_slot.id'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('student_profile.id'), nullable=False)
-    booking_status = db.Column(db.String(), default='Booked')  # Booked / Cancelled / Completed
+    booking_status = db.Column(db.String(), default='Booked')  
     booking_date = db.Column(db.DateTime, default=datetime.now)
 
     evaluation = db.relationship('Evaluation', backref='booking', uselist=False)
@@ -113,19 +115,31 @@ class ExamRubric(db.Model):
 
 class Evaluation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'), nullable=False)
+    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'), nullable=False, unique=True)
     student_id = db.Column(db.Integer, db.ForeignKey('student_profile.id'), nullable=False)
     examiner_id = db.Column(db.Integer, db.ForeignKey('examiner_profile.id'), nullable=False)
-    marks = db.Column(db.Float, default=0)  # total of all criterion marks
+    marks = db.Column(db.Float, default=0)  
     remarks = db.Column(db.String())
     evaluation_date = db.Column(db.DateTime, default=datetime.now)
-    evaluation_status = db.Column(db.String(), default='Pending')  # Pending / Evaluated
+    evaluation_status = db.Column(db.String(), default='Pending')  
 
     score = db.relationship('EvaluationScore', backref='evaluation', lazy=True)
 
 
 class EvaluationScore(db.Model):
+    __table_args__ = (db.UniqueConstraint('evaluation_id', 'rubric_id'),)
     id = db.Column(db.Integer, primary_key=True)
     evaluation_id = db.Column(db.Integer, db.ForeignKey('evaluation.id'), nullable=False)
     rubric_id = db.Column(db.Integer, db.ForeignKey('exam_rubric.id'), nullable=False)
     marks = db.Column(db.Float, nullable=False)
+
+class ExportJob(db.Model):
+    """Tracks a student's 'export exam history as CSV' batch job (Celery)."""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('student_profile.id'), nullable=False)
+    task_id = db.Column(db.String())                      
+    status = db.Column(db.String(), default='Pending')    
+    file_path = db.Column(db.String())
+    error = db.Column(db.String())
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    completed_at = db.Column(db.DateTime)
