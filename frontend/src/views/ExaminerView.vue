@@ -1,44 +1,36 @@
 <template>
-    <div>
-        <h1>Examiner View</h1>
-        <div v-if="!isLoggedIn">
-            <div v-if="!isRegistered">
-                <ExaminerLogin @loggedIn-success="handleLoginSuccess" @register-success="isRegistered = true" />
-            </div>
-            <div v-else>
-                <ExaminerReg @registration-success="handleRegistration" @login-success="isRegistered = false" />
-            </div>
-        </div>
-        <ExaminerDash v-else />
-    </div>
+  <div>
+    <ExaminerLogin v-if="!isLoggedIn" @login-success="isLoggedIn = true" />
+    <ExaminerDash v-else @logout="logout" />
+  </div>
 </template>
 
 <script>
 import ExaminerLogin from '@/components/ExaminerLogin.vue'
-import ExaminerReg from '@/components/ExaminerReg.vue'
 import ExaminerDash from '@/components/ExaminerDash.vue'
 
 export default {
-    name: 'ExaminerView',
-    components: {
-        ExaminerLogin,
-        ExaminerReg,
-        ExaminerDash
-    },
-    data() {
-        return {
-            isLoggedIn: false,
-            isRegistered: false
-        }
-    },
-    methods: {
-        handleLoginSuccess() {
-            this.isLoggedIn = true
-        },
-        handleRegistration() {
-            this.isRegistered = true
-            this.isLoggedIn = false
-        }
+  name: 'ExaminerView',
+  components: { ExaminerLogin, ExaminerDash },
+  data() {
+    return {
+      isLoggedIn: !!localStorage.getItem('examiner-token')
     }
+  },
+  mounted() {
+    window.addEventListener('auth-expired', this.handleExpired)
+  },
+  beforeUnmount() {
+    window.removeEventListener('auth-expired', this.handleExpired)
+  },
+  methods: {
+    handleExpired(event) {
+      if (event.detail === 'examiner-token') this.isLoggedIn = false
+    },
+    logout() {
+      localStorage.removeItem('examiner-token')
+      this.isLoggedIn = false
+    }
+  }
 }
 </script>
